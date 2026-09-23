@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '@prisma/client';
+//import { PrismaClient } from '@/generated/prisma';
+import { PrismaClient } from '../src/generated/prisma';
 import bcrypt from 'bcryptjs';
 import * as readline from 'node:readline/promises';
 

@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '@prisma/client';
+//import { PrismaClient } from '@/generated/prisma';
+import { PrismaClient } from '../src/generated/prisma';
 import * as bcrypt from 'bcryptjs';
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
@@ -14,16 +15,15 @@ async function main() {
   // ============================================
   const hashedPassword = await bcrypt.hash('EcmAdmin2026!', 10);
 
-  const admin = await prisma.user.upsert({
+    const admin = await prisma.user.upsert({
     where: { email: 'samirung65@gmail.com' },
     update: {},
     create: {
-      name: 'Administrateur ECM',
-      email: 'samirung65@gmail.com',
-      password: hashedPassword,
-      role: 'ADMIN',
+        name: 'Administrateur ECM',
+        email: 'samirung65@gmail.com',
+        password: hashedPassword,
     },
-  });
+    });
   console.log(`✅ Admin créé : ${admin.email}`);
 
   // ============================================
