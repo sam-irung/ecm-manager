@@ -1,0 +1,230 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// UTILISATEURS
+// ============================================
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  password      String
+  image         String?
+  active        Boolean   @default(true)
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// CLIENTS
+// ============================================
+model Client {
+  id        String   @id @default(cuid())
+  code      String   @unique // CLIENT-0001, CLIENT-0002...
+  name      String
+  phone     String
+  email     String?
+  address   String?
+  type      String   @default("Particulier") // Particulier, Entreprise, Commerce, Autre
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quotes    Quote[]
+  projects  Project[]
+}
+
+// ============================================
+// CATALOGUE (Catégories + Produits)
+// ============================================
+model Category {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  icon     String?   // Nom d'icône lucide (ex: "Hammer", "Zap")
+  order    Int       @default(0)
+  products Product[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  unit        String   @default("pièce") // pièce, m², m³, kg, sac, boîte, forfait
+  priceFc     Float    @default(0)
+  priceUsd    Float?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+
+  quoteItems  QuoteItem[]
+}
+
+// ============================================
+// DEVIS
+// ============================================
+model Quote {
+  id            String   @id @default(cuid())
+  quoteNumber   String   @unique // DEV-2026-001
+  projectName   String
+  siteLocation  String?
+  date          DateTime @default(now())
+  validUntil    DateTime?
+  status        String   @default("BROUILLON") // BROUILLON, ENVOYE, ACCEPTE, REFUSE, EXPIRE
+
+  exchangeRate  Float    @default(2250) // 1 USD = X FC
+  discount      Float    @default(0)    // Remise en FC
+  laborCostUsd  Float    @default(0)    // Main-d'œuvre en USD
+  transportUsd  Float    @default(0)    // Transport en USD
+
+  subtotalFc    Float    @default(0)
+  totalFc       Float    @default(0)
+  totalUsd      Float    @default(0)
+
+  notes         String?
+
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id])
+
+  items         QuoteItem[]
+  project       Project?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model QuoteItem {
+  id          String   @id @default(cuid())
+  description String
+  unit        String   @default("pièce")
+  quantity    Float    @default(1)
+  unitPrice   Float    @default(0) // Prix unitaire en FC
+  total       Float    @default(0) // quantity * unitPrice
+
+  quoteId     String
+  quote       Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id])
+}
+
+// ============================================
+// CHANTIERS (Travaux)
+// ============================================
+model Project {
+  id          String    @id @default(cuid())
+  projectCode String    @unique // TRAV-2026-001
+  name        String
+  status      String    @default("PREPARATION") // PREPARATION, EN_COURS, EN_PAUSE, TERMINE, ANNULE
+  totalAmount Float     @default(0) // Montant total du devis (en FC)
+  startDate   DateTime?
+  endDate     DateTime?
+  notes       String?
+
+  clientId    String
+  client      Client    @relation(fields: [clientId], references: [id])
+
+  quoteId     String?   @unique
+  quote       Quote?    @relation(fields: [quoteId], references: [id])
+
+  payments    Payment[]
+  expenses    Expense[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ============================================
+// PAIEMENTS CLIENTS
+// ============================================
+model Payment {
+  id          String   @id @default(cuid())
+  amount      Float
+  currency    String   @default("FC") // FC ou USD
+  method      String   @default("Espèces") // Espèces, Mobile Money, Virement, Chèque
+  reference   String?
+  paymentDate DateTime @default(now())
+  notes       String?
+
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+}
+
+// ============================================
+// DÉPENSES CHANTIER
+// ============================================
+model Expense {
+  id          String   @id @default(cuid())
+  category    String   // Matériaux, Transport, Main-d'œuvre, Restauration, Autres
+  description String
+  amount      Float
+  currency    String   @default("FC") // FC ou USD
+  date        DateTime @default(now())
+  notes       String?
+
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+}
+
+// ============================================
+// PARAMÈTRES DE L'APPLICATION
+// ============================================
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  category  String   @default("general") // entreprise, finances, devis, catalogue, systeme
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// COMPTEURS (numérotation séquentielle)
+// ============================================
+model Counter {
+  id       String @id @default(cuid())
+  key      String @unique // "quote-2026", "project-2026", "client"
+  value    Int    @default(0)
+  updatedAt DateTime @updatedAt
+}
