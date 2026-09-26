@@ -60,19 +60,15 @@ export default async function ClientDetailPage({
             </span>
           </div>
 
-          <ClientActions
+            <ClientActions
             client={{
-              id: client.id,
-              name: client.name,
-              phone: client.phone,
-              email: client.email,
-              address: client.address,
-              type: client.type,
-              notes: client.notes,
-              quotesCount: client.quotes.length,
-              projectsCount: client.projects.length,
+                id: client.id,
+                name: client.name,
+                archived: client.archived,
+                quotesCount: client.quotes.length,
+                projectsCount: client.projects.length,
             }}
-          />
+            />
         </div>
       </div>
 

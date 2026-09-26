@@ -57,13 +57,14 @@ model Session {
 // ============================================
 model Client {
   id        String   @id @default(cuid())
-  code      String   @unique // CLIENT-0001, CLIENT-0002...
+  code      String   @unique
   name      String
   phone     String
   email     String?
   address   String?
-  type      String   @default("Particulier") // Particulier, Entreprise, Commerce, Autre
+  type      String   @default("Particulier")
   notes     String?
+  archived  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -110,7 +111,7 @@ model Quote {
   date          DateTime @default(now())
   validUntil    DateTime?
   status        String   @default("BROUILLON") // BROUILLON, ENVOYE, ACCEPTE, REFUSE, EXPIRE
-
+  currency      String   @default("FC")
   exchangeRate  Float    @default(2250) // 1 USD = X FC
   discount      Float    @default(0)    // Remise en FC
   laborCostUsd  Float    @default(0)    // Main-d'œuvre en USD
@@ -119,7 +120,7 @@ model Quote {
   subtotalFc    Float    @default(0)
   totalFc       Float    @default(0)
   totalUsd      Float    @default(0)
-
+  
   notes         String?
 
   clientId      String
@@ -127,7 +128,7 @@ model Quote {
 
   items         QuoteItem[]
   project       Project?
-
+  archived  Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -168,7 +169,7 @@ model Project {
 
   payments    Payment[]
   expenses    Expense[]
-
+  archived  Boolean  @default(false)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }

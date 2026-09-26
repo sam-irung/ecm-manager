@@ -49,6 +49,7 @@ interface Props {
   categories: Category[];
   defaultExchangeRate: number;
   defaultUnit: string;
+  defaultCurrency: string;
 }
 
 export default function DevisForm({
@@ -56,6 +57,7 @@ export default function DevisForm({
   categories,
   defaultExchangeRate,
   defaultUnit,
+  defaultCurrency,
 }: Props) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +68,9 @@ export default function DevisForm({
   const [projectName, setProjectName] = useState('');
   const [siteLocation, setSiteLocation] = useState('');
   const [notes, setNotes] = useState('');
+
+  // Devise
+  const [currency, setCurrency] = useState(defaultCurrency);
 
   // Finances
   const [exchangeRate, setExchangeRate] = useState(defaultExchangeRate);
@@ -218,6 +223,7 @@ export default function DevisForm({
         projectName,
         siteLocation,
         notes,
+        currency,
         exchangeRate,
         laborCostUsd,
         transportUsd,
@@ -381,6 +387,17 @@ export default function DevisForm({
                 placeholder="Ex : Lubumbashi, Golf"
                 className={inputClass}
               />
+            </Field>
+
+            <Field label="Devise du devis" required>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                className={inputClass}
+              >
+                <option value="FC">FC (Franc Congolais)</option>
+                <option value="USD">USD (Dollar Américain)</option>
+              </select>
             </Field>
 
             <Field label="Taux de change (1 USD = ? FC)" required>

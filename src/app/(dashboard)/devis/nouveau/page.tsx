@@ -34,6 +34,7 @@ export default async function NouveauDevisPage() {
       categories={categories}
       defaultExchangeRate={parseFloat(settings.exchange_rate)}
       defaultUnit={settings.default_unit}
+      defaultCurrency={settings.default_currency}
     />
   );
 }

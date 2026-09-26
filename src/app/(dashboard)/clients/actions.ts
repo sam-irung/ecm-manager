@@ -49,17 +49,6 @@ export async function createClient(formData: FormData) {
   redirect('/clients');
 }
 
-export async function getClients() {
-  return prisma.client.findMany({
-    orderBy: { createdAt: 'desc' },
-    include: {
-      _count: {
-        select: { quotes: true, projects: true },
-      },
-    },
-  });
-}
-
 export async function getClient(id: string) {
   return prisma.client.findUnique({
     where: { id },
@@ -106,10 +95,33 @@ export async function updateClient(id: string, formData: FormData) {
 }
 
 // ============================================
-// SUPPRIMER UN CLIENT
+// ARCHIVER UN CLIENT
+// ============================================
+export async function archiveClient(id: string) {
+  await prisma.client.update({
+    where: { id },
+    data: { archived: true },
+  });
+  revalidatePath('/clients');
+  return { success: true };
+}
+
+// ============================================
+// RESTAURER UN CLIENT
+// ============================================
+export async function restoreClient(id: string) {
+  await prisma.client.update({
+    where: { id },
+    data: { archived: false },
+  });
+  revalidatePath('/clients');
+  return { success: true };
+}
+
+// ============================================
+// SUPPRIMER DÉFINITIVEMENT UN CLIENT
 // ============================================
 export async function deleteClient(id: string) {
-  // Vérifier qu'il n'y a pas de devis/chantiers associés
   const client = await prisma.client.findUnique({
     where: { id },
     include: {
@@ -121,11 +133,30 @@ export async function deleteClient(id: string) {
 
   if (client._count.quotes > 0 || client._count.projects > 0) {
     return {
-      error: `Impossible de supprimer : ce client a ${client._count.quotes} devis et ${client._count.projects} chantier(s) associé(s).`,
+      error: `Impossible de supprimer : ce client a ${client._count.quotes} devis et ${client._count.projects} chantier(s) associé(s). Archivez-le à la place.`,
     };
   }
 
   await prisma.client.delete({ where: { id } });
   revalidatePath('/clients');
   return { success: true };
+}
+
+// ============================================
+// LECTURE AVEC FILTRE ARCHIVE
+// ============================================
+export async function getClients(includeArchived = false) {
+  return prisma.client.findMany({
+    where: includeArchived ? {} : { archived: false },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      _count: {
+        select: { quotes: true, projects: true },
+      },
+    },
+  });
+}
+
+export async function getArchivedClientsCount() {
+  return prisma.client.count({ where: { archived: true } });
 }
