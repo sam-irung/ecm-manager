@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, FileText, Eye, Download } from 'lucide-react';
 import { getQuote } from '../actions';
-import { formatDate, formatFC, formatUSD } from '@/lib/format';
+//import { formatDate, formatFC, formatUSD } from '@/lib/format';
+import { formatDate, formatCurrency } from '@/lib/format';
 import QuoteStatusBadge from '../QuoteStatusBadge';
 import { prisma } from '@/lib/prisma';
 import { getSetting } from '@/lib/settings';
@@ -56,6 +57,13 @@ export default async function QuoteDetailPage({
             <h1 className="text-2xl sm:text-3xl font-bold text-ecm-blue flex items-center gap-3">
               <FileText size={28} />
               {quote.quoteNumber}
+            </h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-ecm-blue flex items-center gap-3">
+              <FileText size={28} />
+              {quote.quoteNumber}
+              <span className="text-sm font-bold px-2.5 py-1 rounded-full bg-ecm-orange text-white">
+                {quote.currency}
+              </span>
             </h1>
             <p className="text-gray-600 mt-1">{quote.projectName}</p>
             <div className="mt-2">
@@ -124,12 +132,14 @@ export default async function QuoteDetailPage({
         <div className="pt-4 border-t border-gray-100">
           <p className="text-xs text-gray-500 mb-2">Articles</p>
           <div className="space-y-1 text-sm">
-            {quote.items.map((item) => (
+            {quote.items.map((item: any) => (
               <div key={item.id} className="flex justify-between">
                 <span>
                   {item.description} × {item.quantity} {item.unit}
                 </span>
-                <span className="font-medium">{formatFC(item.total)}</span>
+                <span className="font-medium">
+                  {formatCurrency(item.total, quote.currency)}
+                </span>
               </div>
             ))}
           </div>
@@ -138,37 +148,40 @@ export default async function QuoteDetailPage({
         <div className="pt-4 border-t border-gray-100 space-y-1 text-sm">
           <div className="flex justify-between">
             <span className="text-gray-500">Sous-total</span>
-            <span>{formatFC(quote.subtotalFc)}</span>
+            <span>{formatCurrency(quote.subtotalFc, quote.currency)}</span>
           </div>
+          {quote.laborCostUsd > 0 && (
+            <div className="flex justify-between text-gray-600">
+              <span>Main-d'œuvre</span>
+              <span>{formatCurrency(quote.laborCostUsd, quote.currency)}</span>
+            </div>
+          )}
+          {quote.transportUsd > 0 && (
+            <div className="flex justify-between text-gray-600">
+              <span>Transport</span>
+              <span>{formatCurrency(quote.transportUsd, quote.currency)}</span>
+            </div>
+          )}
           {quote.discount > 0 && (
             <div className="flex justify-between">
               <span className="text-gray-500">Remise</span>
-              <span>- {formatFC(quote.discount)}</span>
+              <span>- {formatCurrency(quote.discount, quote.currency)}</span>
             </div>
           )}
-          <div className="flex justify-between font-bold text-ecm-blue">
-            <span>Total FC</span>
-            <span>{formatFC(quote.totalFc)}</span>
+          <div className="flex justify-between font-bold text-ecm-blue pt-2 border-t border-gray-100">
+            <span>Total {quote.currency}</span>
+            <span>{formatCurrency(quote.totalFc, quote.currency)}</span>
           </div>
-          {(quote.laborCostUsd > 0 || quote.transportUsd > 0) && (
-            <>
-              {quote.laborCostUsd > 0 && (
-                <div className="flex justify-between text-gray-600">
-                  <span>Main-d'œuvre</span>
-                  <span>{formatUSD(quote.laborCostUsd)}</span>
-                </div>
+          <div className="flex justify-between text-ecm-orange text-xs pt-1">
+            <span>
+              Équivalent {quote.currency === 'FC' ? 'USD' : 'FC'}
+            </span>
+            <span>
+              {formatCurrency(
+                quote.totalUsd,
+                quote.currency === 'FC' ? 'USD' : 'FC'
               )}
-              {quote.transportUsd > 0 && (
-                <div className="flex justify-between text-gray-600">
-                  <span>Transport</span>
-                  <span>{formatUSD(quote.transportUsd)}</span>
-                </div>
-              )}
-            </>
-          )}
-          <div className="flex justify-between text-ecm-orange font-bold pt-2 border-t border-gray-100">
-            <span>Total USD</span>
-            <span>{formatUSD(quote.totalUsd)}</span>
+            </span>
           </div>
         </div>
 
@@ -189,6 +202,7 @@ export default async function QuoteDetailPage({
           projectName: quote.projectName,
           siteLocation: quote.siteLocation,
           notes: quote.notes,
+          currency: quote.currency,
           exchangeRate: quote.exchangeRate,
           discount: quote.discount,
           laborCostUsd: quote.laborCostUsd,

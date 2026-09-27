@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useQuoteModalStore } from '@/lib/quoteModalStore';
 import { updateQuote } from '../actions';
-import { formatFC, formatUSD } from '@/lib/format';
+import { formatCurrency } from '@/lib/format';
 
 interface Client {
   id: string;
@@ -48,6 +48,7 @@ interface Props {
     projectName: string;
     siteLocation: string | null;
     notes: string | null;
+    currency: string;
     exchangeRate: number;
     discount: number;
     laborCostUsd: number;
@@ -93,10 +94,13 @@ export default function EditQuoteModal({
   const [siteLocation, setSiteLocation] = useState(quote.siteLocation ?? '');
   const [notes, setNotes] = useState(quote.notes ?? '');
 
-  // Finances
+  // Devise — verrouillée (on garde celle d'origine)
+  const currency = quote.currency;
+
+  // Finances — tout dans la devise du devis
   const [exchangeRate, setExchangeRate] = useState(quote.exchangeRate);
-  const [laborCostUsd, setLaborCostUsd] = useState(quote.laborCostUsd);
-  const [transportUsd, setTransportUsd] = useState(quote.transportUsd);
+  const [laborCost, setLaborCost] = useState(quote.laborCostUsd);
+  const [transportCost, setTransportCost] = useState(quote.transportUsd);
   const [discount, setDiscount] = useState(quote.discount);
 
   // Lignes
@@ -119,8 +123,8 @@ export default function EditQuoteModal({
       setSiteLocation(quote.siteLocation ?? '');
       setNotes(quote.notes ?? '');
       setExchangeRate(quote.exchangeRate);
-      setLaborCostUsd(quote.laborCostUsd);
-      setTransportUsd(quote.transportUsd);
+      setLaborCost(quote.laborCostUsd);
+      setTransportCost(quote.transportUsd);
       setDiscount(quote.discount);
       setLines(
         quote.items.map((item) => ({
@@ -137,18 +141,17 @@ export default function EditQuoteModal({
     }
   }, [isOpen, quote]);
 
-  // Calculs
+  // Calculs — tout dans la devise du devis
   const totals = useMemo(() => {
-    const itemsTotal = lines.reduce(
+    const subtotal = lines.reduce(
       (sum, l) => sum + l.quantity * l.unitPrice,
       0
     );
-    const subtotal = itemsTotal;
-    const totalFc = subtotal - discount;
-    const totalUsd =
-      totalFc / exchangeRate + laborCostUsd + transportUsd;
-    return { subtotal, totalFc, totalUsd };
-  }, [lines, discount, exchangeRate, laborCostUsd, transportUsd]);
+    const total = subtotal - discount + laborCost + transportCost;
+    const equivalent =
+      currency === 'FC' ? total / exchangeRate : total * exchangeRate;
+    return { subtotal, total, equivalent };
+  }, [lines, discount, laborCost, transportCost, currency, exchangeRate]);
 
   // Gestion des lignes
   function addLine() {
@@ -225,9 +228,10 @@ export default function EditQuoteModal({
         projectName,
         siteLocation,
         notes,
+        currency,
         exchangeRate,
-        laborCostUsd,
-        transportUsd,
+        laborCostUsd: laborCost,
+        transportUsd: transportCost,
         discount,
         items: validLines.map((l) => ({
           description: l.description,
@@ -260,9 +264,14 @@ export default function EditQuoteModal({
       <div className="bg-white rounded-xl shadow-xl max-w-5xl w-full my-8">
         {/* En-tête */}
         <div className="flex items-center justify-between p-5 border-b border-gray-100 sticky top-0 bg-white rounded-t-xl z-10">
-          <h3 className="text-lg font-semibold text-ecm-blue">
-            Modifier le devis
-          </h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-semibold text-ecm-blue">
+              Modifier le devis
+            </h3>
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-ecm-orange text-white">
+              {currency}
+            </span>
+          </div>
           <button
             onClick={close}
             className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -286,7 +295,7 @@ export default function EditQuoteModal({
             </div>
           )}
 
-          {/* Infos générales */}
+          {/* Informations générales */}
           <div className="bg-gray-50 rounded-lg p-4 space-y-4">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-ecm-blue">
               Informations générales
@@ -357,12 +366,17 @@ export default function EditQuoteModal({
                 />
               </div>
             </div>
+
+            {/* Info devise verrouillée */}
+            <div className="text-xs text-gray-500 pt-2 border-t border-gray-200">
+              Devise du devis : <strong className="text-ecm-blue">{currency}</strong> — non modifiable après création.
+            </div>
           </div>
 
           {/* Lignes */}
           <div className="bg-gray-50 rounded-lg p-4 space-y-3">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-ecm-blue">
-              Articles / Prestations
+              Articles / Prestations ({currency})
             </h4>
 
             {lines.map((line) => (
@@ -416,7 +430,7 @@ export default function EditQuoteModal({
                   />
                   <div className="md:col-span-2 flex items-center justify-between gap-2">
                     <span className="text-sm font-medium text-ecm-blue">
-                      {formatFC(line.quantity * line.unitPrice)}
+                      {formatCurrency(line.quantity * line.unitPrice, currency)}
                     </span>
                     <button
                       type="button"
@@ -438,7 +452,7 @@ export default function EditQuoteModal({
                     <optgroup key={cat.id} label={cat.name}>
                       {cat.products.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name} ({formatFC(p.priceFc)})
+                          {p.name} ({formatCurrency(p.priceFc, currency)})
                         </option>
                       ))}
                     </optgroup>
@@ -460,18 +474,18 @@ export default function EditQuoteModal({
           {/* Finances */}
           <div className="bg-gray-50 rounded-lg p-4 space-y-3">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-ecm-blue">
-              Main-d'œuvre et frais
+              Main-d'œuvre et frais ({currency})
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                  Main-d'œuvre (USD)
+                  Main-d'œuvre ({currency})
                 </label>
                 <input
                   type="number"
-                  value={laborCostUsd}
+                  value={laborCost}
                   onChange={(e) =>
-                    setLaborCostUsd(parseFloat(e.target.value) || 0)
+                    setLaborCost(parseFloat(e.target.value) || 0)
                   }
                   min="0"
                   step="0.01"
@@ -480,13 +494,13 @@ export default function EditQuoteModal({
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                  Transport (USD)
+                  Transport ({currency})
                 </label>
                 <input
                   type="number"
-                  value={transportUsd}
+                  value={transportCost}
                   onChange={(e) =>
-                    setTransportUsd(parseFloat(e.target.value) || 0)
+                    setTransportCost(parseFloat(e.target.value) || 0)
                   }
                   min="0"
                   step="0.01"
@@ -495,7 +509,7 @@ export default function EditQuoteModal({
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                  Remise (FC)
+                  Remise ({currency})
                 </label>
                 <input
                   type="number"
@@ -515,21 +529,38 @@ export default function EditQuoteModal({
             <div className="space-y-1.5 text-sm">
               <div className="flex justify-between">
                 <span className="text-white/70">Sous-total</span>
-                <span>{formatFC(totals.subtotal)}</span>
+                <span>{formatCurrency(totals.subtotal, currency)}</span>
               </div>
+              {laborCost > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-white/70">Main-d'œuvre</span>
+                  <span>{formatCurrency(laborCost, currency)}</span>
+                </div>
+              )}
+              {transportCost > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-white/70">Transport</span>
+                  <span>{formatCurrency(transportCost, currency)}</span>
+                </div>
+              )}
               {discount > 0 && (
                 <div className="flex justify-between">
                   <span className="text-white/70">Remise</span>
-                  <span>- {formatFC(discount)}</span>
+                  <span>- {formatCurrency(discount, currency)}</span>
                 </div>
               )}
               <div className="flex justify-between font-bold pt-2 border-t border-white/20">
-                <span>Total FC</span>
-                <span>{formatFC(totals.totalFc)}</span>
+                <span>Total {currency}</span>
+                <span>{formatCurrency(totals.total, currency)}</span>
               </div>
-              <div className="flex justify-between font-bold text-ecm-orange">
-                <span>Total USD</span>
-                <span>{formatUSD(totals.totalUsd)}</span>
+              <div className="flex justify-between text-ecm-orange text-xs">
+                <span>Équivalent {currency === 'FC' ? 'USD' : 'FC'}</span>
+                <span>
+                  {formatCurrency(
+                    totals.equivalent,
+                    currency === 'FC' ? 'USD' : 'FC'
+                  )}
+                </span>
               </div>
             </div>
           </div>

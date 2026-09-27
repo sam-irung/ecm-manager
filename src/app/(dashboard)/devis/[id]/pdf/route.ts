@@ -57,6 +57,7 @@ export async function GET(
           validUntil: quote.validUntil,
           projectName: quote.projectName,
           siteLocation: quote.siteLocation,
+          currency: quote.currency,
           exchangeRate: quote.exchangeRate,
           subtotalFc: quote.subtotalFc,
           discount: quote.discount,
@@ -104,7 +105,6 @@ export async function GET(
       .replace(/-+/g, '-');
     const filename = `${quote.quoteNumber}_${safeClientName}.pdf`;
 
-    // inline = affiche dans le navigateur / attachment = force le téléchargement
     const disposition = shouldDownload ? 'attachment' : 'inline';
 
     return new NextResponse(pdfBuffer as unknown as BodyInit, {

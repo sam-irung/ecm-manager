@@ -71,11 +71,21 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica-Bold',
     color: ECM_BLUE,
   },
+  currencyBadge: {
+    fontSize: 9,
+    fontFamily: 'Helvetica-Bold',
+    color: '#FFFFFF',
+    backgroundColor: ECM_ORANGE,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 3,
+    marginTop: 3,
+  },
   quoteNumber: {
     fontSize: 11,
     fontFamily: 'Helvetica-Bold',
     color: ECM_ORANGE,
-    marginTop: 2,
+    marginTop: 4,
   },
   quoteDate: {
     fontSize: 9,
@@ -148,13 +158,16 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: '#172033',
   },
+  tableCellRight: {
+    textAlign: 'right',
+  },
 
   // Column widths
   colDescription: { flex: 4 },
   colUnit: { width: 55, textAlign: 'center' },
   colQuantity: { width: 45, textAlign: 'center' },
-  colUnitPrice: { width: 75, textAlign: 'right' },
-  colTotal: { width: 85, textAlign: 'right' },
+  colUnitPrice: { width: 85, textAlign: 'right' },
+  colTotal: { width: 95, textAlign: 'right' },
 
   // Totals
   totalsSection: {
@@ -163,7 +176,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   totalsBox: {
-    width: 250,
+    width: 260,
     borderWidth: 1,
     borderColor: GRAY_BORDER,
     borderRadius: 4,
@@ -203,7 +216,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   totalsLabelHighlight: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: 'Helvetica-Bold',
     color: 'white',
   },
@@ -293,6 +306,7 @@ interface QuotePDFProps {
     validUntil: Date | null;
     projectName: string;
     siteLocation: string | null;
+    currency: string;
     exchangeRate: number;
     subtotalFc: number;
     discount: number;
@@ -339,7 +353,9 @@ interface QuotePDFProps {
 function formatFC(amount: number): string {
   return new Intl.NumberFormat('fr-CD', {
     minimumFractionDigits: 0,
-  }).format(amount);
+  })
+    .format(amount)
+    .replace(/\u202F|\u00A0/g, ' ');
 }
 
 function formatUSD(amount: number): string {
@@ -357,18 +373,20 @@ function formatDate(date: Date): string {
   }).format(new Date(date));
 }
 
-function formatDateLong(date: Date): string {
-  return new Intl.DateTimeFormat('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date(date));
+function formatCurrency(amount: number, currency: string): string {
+  if (currency === 'USD') {
+    return `${formatUSD(amount)} $`;
+  }
+  return `${formatFC(amount)} FC`;
 }
 
 // ============================================
 // COMPOSANT
 // ============================================
 export default function QuotePDF({ quote, settings, logoUrl }: QuotePDFProps) {
+  const currency = quote.currency || 'FC';
+  const otherCurrency = currency === 'FC' ? 'USD' : 'FC';
+
   return (
     <Document
       title={`Devis ${quote.quoteNumber}`}
@@ -433,11 +451,9 @@ export default function QuotePDF({ quote, settings, logoUrl }: QuotePDFProps) {
             <Text style={styles.clientLabel}>Projet</Text>
             <Text style={styles.clientName}>{quote.projectName}</Text>
             {quote.siteLocation && (
-              <>
-                <Text style={styles.clientDetail}>
-                  Lieu : {quote.siteLocation}
-                </Text>
-              </>
+              <Text style={styles.clientDetail}>
+                Lieu : {quote.siteLocation}
+              </Text>
             )}
             <Text style={styles.clientDetail}>
               Taux : 1 USD = {quote.exchangeRate} FC
@@ -458,10 +474,10 @@ export default function QuotePDF({ quote, settings, logoUrl }: QuotePDFProps) {
               Qté
             </Text>
             <Text style={[styles.tableHeaderText, styles.colUnitPrice]}>
-              Prix U. (FC)
+              Prix U. ({currency})
             </Text>
             <Text style={[styles.tableHeaderText, styles.colTotal]}>
-              Total (FC)
+              Total ({currency})
             </Text>
           </View>
 
@@ -482,11 +498,23 @@ export default function QuotePDF({ quote, settings, logoUrl }: QuotePDFProps) {
               <Text style={[styles.tableCell, styles.colQuantity]}>
                 {item.quantity}
               </Text>
-              <Text style={[styles.tableCell, styles.colUnitPrice]}>
-                {formatFC(item.unitPrice)}
+              <Text
+                style={[
+                  styles.tableCell,
+                  styles.colUnitPrice,
+                  styles.tableCellRight,
+                ]}
+              >
+                {formatCurrency(item.unitPrice, currency)}
               </Text>
-              <Text style={[styles.tableCell, styles.colTotal]}>
-                {formatFC(item.total)}
+              <Text
+                style={[
+                  styles.tableCell,
+                  styles.colTotal,
+                  styles.tableCellRight,
+                ]}
+              >
+                {formatCurrency(item.total, currency)}
               </Text>
             </View>
           ))}
@@ -498,51 +526,52 @@ export default function QuotePDF({ quote, settings, logoUrl }: QuotePDFProps) {
             <View style={styles.totalsRow}>
               <Text style={styles.totalsLabel}>Sous-total articles</Text>
               <Text style={styles.totalsValue}>
-                {formatFC(quote.subtotalFc)} FC
+                {formatCurrency(quote.subtotalFc, currency)}
               </Text>
             </View>
+
+            {quote.laborCostUsd > 0 && (
+              <View style={styles.totalsRow}>
+                <Text style={styles.totalsLabel}>Main-d'œuvre</Text>
+                <Text style={styles.totalsValue}>
+                  {formatCurrency(quote.laborCostUsd, currency)}
+                </Text>
+              </View>
+            )}
+
+            {quote.transportUsd > 0 && (
+              <View style={styles.totalsRow}>
+                <Text style={styles.totalsLabel}>Transport</Text>
+                <Text style={styles.totalsValue}>
+                  {formatCurrency(quote.transportUsd, currency)}
+                </Text>
+              </View>
+            )}
 
             {quote.discount > 0 && (
               <View style={styles.totalsRow}>
                 <Text style={styles.totalsLabel}>Remise</Text>
                 <Text style={styles.totalsValue}>
-                  - {formatFC(quote.discount)} FC
+                  - {formatCurrency(quote.discount, currency)}
                 </Text>
               </View>
             )}
 
             <View style={[styles.totalsRow, styles.totalsRowBold]}>
-              <Text style={styles.totalsLabelBold}>Total FC</Text>
+              <Text style={styles.totalsLabelBold}>
+                Total {currency}
+              </Text>
               <Text style={styles.totalsValueBold}>
-                {formatFC(quote.totalFc)} FC
+                {formatCurrency(quote.totalFc, currency)}
               </Text>
             </View>
 
-            {(quote.laborCostUsd > 0 || quote.transportUsd > 0) && (
-              <>
-                {quote.laborCostUsd > 0 && (
-                  <View style={styles.totalsRow}>
-                    <Text style={styles.totalsLabel}>Main-d'œuvre</Text>
-                    <Text style={styles.totalsValue}>
-                      {formatUSD(quote.laborCostUsd)} USD
-                    </Text>
-                  </View>
-                )}
-                {quote.transportUsd > 0 && (
-                  <View style={styles.totalsRow}>
-                    <Text style={styles.totalsLabel}>Transport</Text>
-                    <Text style={styles.totalsValue}>
-                      {formatUSD(quote.transportUsd)} USD
-                    </Text>
-                  </View>
-                )}
-              </>
-            )}
-
             <View style={[styles.totalsRow, styles.totalsRowHighlight]}>
-              <Text style={styles.totalsLabelHighlight}>TOTAL USD</Text>
+              <Text style={styles.totalsLabelHighlight}>
+                ÉQUIVALENT {otherCurrency}
+              </Text>
               <Text style={styles.totalsValueHighlight}>
-                {formatUSD(quote.totalUsd)} $
+                {formatCurrency(quote.totalUsd, otherCurrency)}
               </Text>
             </View>
           </View>

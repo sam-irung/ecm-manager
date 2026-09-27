@@ -44,14 +44,19 @@ export async function createQuote(formData: FormData) {
     const data = parsed.data;
 
     // Calculs
-    const itemsTotal = data.items.reduce(
+    const subtotal = data.items.reduce(
       (sum, item) => sum + item.quantity * item.unitPrice,
       0
     );
-    const subtotal = itemsTotal;
-    const totalFc = subtotal - data.discount;
-    const totalUsd =
-      totalFc / data.exchangeRate + data.laborCostUsd + data.transportUsd;
+
+    // Total dans la devise du devis
+    const total = subtotal - data.discount + data.laborCostUsd + data.transportUsd;
+
+    // Équivalent dans l'autre devise
+    const equivalent =
+      data.currency === 'FC'
+        ? total / data.exchangeRate
+        : total * data.exchangeRate;
 
     // Numérotation
     const prefix = await getSetting('quote_prefix');
@@ -74,9 +79,9 @@ export async function createQuote(formData: FormData) {
         discount: data.discount,
         laborCostUsd: data.laborCostUsd,
         transportUsd: data.transportUsd,
-        subtotalFc: subtotal,
-        totalFc,
-        totalUsd,
+        subtotalFc: subtotal,       // sous-total (dans la devise du devis)
+        totalFc: total,             // total (dans la devise du devis)
+        totalUsd: equivalent,       // équivalent dans l'autre devise
         validUntil,
         status: 'BROUILLON',
         clientId: data.clientId,
@@ -183,14 +188,15 @@ export async function updateQuote(
     const data = parsed.data;
 
     // Recalculs
-    const itemsTotal = data.items.reduce(
+    const subtotal = data.items.reduce(
       (sum, item) => sum + item.quantity * item.unitPrice,
       0
     );
-    const subtotal = itemsTotal;
-    const totalFc = subtotal - data.discount;
-    const totalUsd =
-      totalFc / data.exchangeRate + data.laborCostUsd + data.transportUsd;
+    const total = subtotal - data.discount + data.laborCostUsd + data.transportUsd;
+    const equivalent =
+      data.currency === 'FC'
+        ? total / data.exchangeRate
+        : total * data.exchangeRate;
 
     // Mise à jour : on supprime les anciennes lignes et on recrée
     await prisma.$transaction([
@@ -206,8 +212,8 @@ export async function updateQuote(
           laborCostUsd: data.laborCostUsd,
           transportUsd: data.transportUsd,
           subtotalFc: subtotal,
-          totalFc,
-          totalUsd,
+          totalFc: total,
+          totalUsd: equivalent,
           clientId: data.clientId,
           items: {
             create: data.items.map((item) => ({

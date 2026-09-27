@@ -14,7 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import { createQuote, createQuickClient } from '../actions';
-import { formatFC, formatUSD } from '@/lib/format';
+import { formatCurrency } from '@/lib/format';
 
 interface Client {
   id: string;
@@ -70,12 +70,12 @@ export default function DevisForm({
   const [notes, setNotes] = useState('');
 
   // Devise
-  const [currency, setCurrency] = useState(defaultCurrency);
+  const [currency, setCurrency] = useState(defaultCurrency || 'FC');
 
-  // Finances
+  // Finances — tout dans la devise du devis
   const [exchangeRate, setExchangeRate] = useState(defaultExchangeRate);
-  const [laborCostUsd, setLaborCostUsd] = useState(0);
-  const [transportUsd, setTransportUsd] = useState(0);
+  const [laborCost, setLaborCost] = useState(0);
+  const [transportCost, setTransportCost] = useState(0);
   const [discount, setDiscount] = useState(0);
 
   // Lignes
@@ -98,18 +98,18 @@ export default function DevisForm({
   const [quickSaving, setQuickSaving] = useState(false);
 
   // ============================================
-  // CALCULS
+  // CALCULS — tout dans la devise du devis
   // ============================================
   const totals = useMemo(() => {
-    const itemsTotal = lines.reduce(
+    const subtotal = lines.reduce(
       (sum, l) => sum + l.quantity * l.unitPrice,
       0
     );
-    const subtotal = itemsTotal;
-    const totalFc = subtotal - discount;
-    const totalUsd = totalFc / exchangeRate + laborCostUsd + transportUsd;
-    return { subtotal, totalFc, totalUsd };
-  }, [lines, discount, exchangeRate, laborCostUsd, transportUsd]);
+    const total = subtotal - discount + laborCost + transportCost;
+    const equivalent =
+      currency === 'FC' ? total / exchangeRate : total * exchangeRate;
+    return { subtotal, total, equivalent };
+  }, [lines, discount, laborCost, transportCost, currency, exchangeRate]);
 
   // ============================================
   // GESTION DES LIGNES
@@ -225,8 +225,8 @@ export default function DevisForm({
         notes,
         currency,
         exchangeRate,
-        laborCostUsd,
-        transportUsd,
+        laborCostUsd: laborCost,
+        transportUsd: transportCost,
         discount,
         items: validLines.map((l) => ({
           description: l.description,
@@ -428,7 +428,8 @@ export default function DevisForm({
         </Section>
 
         {/* SECTION 2 : LIGNES */}
-        <Section title="Articles / Prestations">
+        <Section title={`Articles / Prestations (${currency})`}>
+          {/* Version desktop : tableau */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -443,7 +444,7 @@ export default function DevisForm({
                     Qté
                   </th>
                   <th className="text-left py-2 px-2 text-xs font-semibold text-gray-500 uppercase w-32">
-                    Prix U. (FC)
+                    Prix U. ({currency})
                   </th>
                   <th className="text-right py-2 px-2 text-xs font-semibold text-gray-500 uppercase w-32">
                     Total
@@ -476,7 +477,7 @@ export default function DevisForm({
                           <optgroup key={cat.id} label={cat.name}>
                             {cat.products.map((p) => (
                               <option key={p.id} value={p.id}>
-                                {p.name} ({formatFC(p.priceFc)})
+                                {p.name} ({formatCurrency(p.priceFc, currency)})
                               </option>
                             ))}
                           </optgroup>
@@ -522,7 +523,10 @@ export default function DevisForm({
                       />
                     </td>
                     <td className="py-2 px-2 text-right text-sm font-medium text-ecm-blue">
-                      {formatFC(line.quantity * line.unitPrice)}
+                      {formatCurrency(
+                        line.quantity * line.unitPrice,
+                        currency
+                      )}
                     </td>
                     <td className="py-2 px-1">
                       <button
@@ -540,6 +544,7 @@ export default function DevisForm({
             </table>
           </div>
 
+          {/* Version mobile : cartes empilées */}
           <div className="md:hidden space-y-3">
             {lines.map((line) => (
               <div
@@ -565,7 +570,7 @@ export default function DevisForm({
                     <optgroup key={cat.id} label={cat.name}>
                       {cat.products.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name} — {formatFC(p.priceFc)}
+                          {p.name} — {formatCurrency(p.priceFc, currency)}
                         </option>
                       ))}
                     </optgroup>
@@ -610,7 +615,7 @@ export default function DevisForm({
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-xs text-gray-500">Total ligne</span>
                   <span className="text-sm font-bold text-ecm-blue">
-                    {formatFC(line.quantity * line.unitPrice)}
+                    {formatCurrency(line.quantity * line.unitPrice, currency)}
                   </span>
                 </div>
                 <button
@@ -637,33 +642,33 @@ export default function DevisForm({
         </Section>
 
         {/* SECTION 3 : FINANCES */}
-        <Section title="Main-d'œuvre et frais">
+        <Section title={`Main-d'œuvre et frais (${currency})`}>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Field label="Main-d'œuvre (USD)">
+            <Field label={`Main-d'œuvre (${currency})`}>
               <input
                 type="number"
-                value={laborCostUsd}
+                value={laborCost}
                 onChange={(e) =>
-                  setLaborCostUsd(parseFloat(e.target.value) || 0)
+                  setLaborCost(parseFloat(e.target.value) || 0)
                 }
                 min="0"
                 step="0.01"
                 className={inputClass}
               />
             </Field>
-            <Field label="Transport (USD)">
+            <Field label={`Transport (${currency})`}>
               <input
                 type="number"
-                value={transportUsd}
+                value={transportCost}
                 onChange={(e) =>
-                  setTransportUsd(parseFloat(e.target.value) || 0)
+                  setTransportCost(parseFloat(e.target.value) || 0)
                 }
                 min="0"
                 step="0.01"
                 className={inputClass}
               />
             </Field>
-            <Field label="Remise (FC)">
+            <Field label={`Remise (${currency})`}>
               <input
                 type="number"
                 value={discount}
@@ -678,31 +683,51 @@ export default function DevisForm({
 
         {/* SECTION 4 : RÉCAPITULATIF */}
         <div className="bg-ecm-blue text-white rounded-xl p-5 sm:p-6 shadow-lg">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-white/60 mb-4">
-            Récapitulatif
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-white/60">
+              Récapitulatif
+            </h3>
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-ecm-orange text-white">
+              {currency}
+            </span>
+          </div>
           <div className="space-y-2 text-sm">
             <Row
               label="Sous-total articles"
-              value={formatFC(totals.subtotal)}
+              value={formatCurrency(totals.subtotal, currency)}
             />
+            {laborCost > 0 && (
+              <Row
+                label="Main-d'œuvre"
+                value={formatCurrency(laborCost, currency)}
+              />
+            )}
+            {transportCost > 0 && (
+              <Row
+                label="Transport"
+                value={formatCurrency(transportCost, currency)}
+              />
+            )}
             {discount > 0 && (
-              <Row label="Remise" value={`- ${formatFC(discount)}`} />
-            )}
-            <Row label="Total FC" value={formatFC(totals.totalFc)} bold />
-            {laborCostUsd > 0 && (
-              <Row label="Main-d'œuvre" value={formatUSD(laborCostUsd)} />
-            )}
-            {transportUsd > 0 && (
-              <Row label="Transport" value={formatUSD(transportUsd)} />
+              <Row
+                label="Remise"
+                value={`- ${formatCurrency(discount, currency)}`}
+              />
             )}
             <div className="pt-3 mt-3 border-t border-white/20">
               <Row
-                label="TOTAL USD (équivalent)"
-                value={formatUSD(totals.totalUsd)}
+                label={`TOTAL ${currency}`}
+                value={formatCurrency(totals.total, currency)}
                 bold
                 highlight
               />
+              <p className="text-xs text-white/60 text-right mt-1">
+                ≈{' '}
+                {formatCurrency(
+                  totals.equivalent,
+                  currency === 'FC' ? 'USD' : 'FC'
+                )}
+              </p>
             </div>
           </div>
         </div>

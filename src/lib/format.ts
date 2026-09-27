@@ -48,3 +48,15 @@ export function formatDateLong(date: Date | string): string {
     year: 'numeric',
   }).format(d);
 }
+
+/**
+ * Formate un montant selon la devise passée
+ * @param amount Le montant
+ * @param currency 'FC' ou 'USD'
+ */
+export function formatCurrency(amount: number, currency: string): string {
+  if (currency === 'USD') {
+    return formatUSD(amount);
+  }
+  return formatFC(amount);
+}
